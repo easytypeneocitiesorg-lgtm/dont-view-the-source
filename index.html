@@ -2,91 +2,152 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fullscreen Trap</title>
+<title>cache</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 html, body {
   margin: 0;
-  width: 100%;
-  height: 100%;
   background: black;
-  overflow: hidden;
-  cursor: none;
-  user-select: none;
+  color: #cfcfcf;
   font-family: monospace;
 }
 
-#gestureLayer {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0,0,0,0.01); /* invisible but clickable */
+#wrap {
+  padding: 40px;
+  max-width: 720px;
+}
+
+.hidden {
+  display: none;
+}
+
+#artifact {
+  margin-top: 30px;
+  opacity: 0.55;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>
 </head>
 <body>
 
-<div id="gestureLayer"></div>
+<div id="wrap">
+  <p id="msg"></p>
+  <p id="sub" class="hidden"></p>
+  <pre id="artifact" class="hidden"></pre>
+</div>
 
 <script>
-const layer = document.getElementById("gestureLayer");
+/* ======================
+   SILENT PROFILE
+====================== */
+const profile = JSON.parse(localStorage.getItem("profile") || "{}");
 
-function requestFS() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
+profile.visits = (profile.visits || 0) + 1;
+profile.firstSeen ||= Date.now();
+profile.platform ||= navigator.platform;
+profile.language ||= navigator.language;
+profile.screen ||= `${screen.width}x${screen.height}`;
+profile.dark ||= matchMedia("(prefers-color-scheme: dark)").matches;
+
+const hour = new Date().getHours();
+profile.night ||= (hour >= 22 || hour <= 4);
+
+localStorage.setItem("profile", JSON.stringify(profile));
+
+/* ======================
+   MESSAGE ESCALATION
+====================== */
+const msg = document.getElementById("msg");
+const sub = document.getElementById("sub");
+const artifact = document.getElementById("artifact");
+
+if (profile.visits === 1) {
+  msg.textContent = "Loading cached copy.";
+}
+else if (profile.visits === 2) {
+  msg.textContent = "This page should not persist.";
+}
+else if (profile.visits === 3) {
+  msg.textContent = "You returned.";
+}
+else if (profile.visits === 4) {
+  msg.textContent = "The cache did not clear.";
+}
+else if (profile.visits === 5) {
+  msg.textContent = profile.night
+    ? "You only check this when no one is watching."
+    : "You don’t linger long in daylight.";
+}
+else if (profile.visits < 8) {
+  msg.textContent = "Some records survived deletion.";
+}
+else {
+  msg.textContent = "A fragment was recovered.";
+  sub.classList.remove("hidden");
+  sub.textContent = "It was never meant for you.";
+
+  artifact.classList.remove("hidden");
+  artifact.textContent = generateArtifact();
 }
 
-function lockPointer() {
-  document.body.requestPointerLock?.();
+/* ======================
+   ENCODING PIPELINE
+====================== */
+
+function rot13(str) {
+  return str.replace(/[a-zA-Z]/g, c =>
+    String.fromCharCode(
+      (c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26
+    )
+  );
 }
 
-function engage() {
-  requestFS();
-  lockPointer();
-  layer.style.display = "none";
+function toHex(str) {
+  return Array.from(str)
+    .map(c => c.charCodeAt(0).toString(16).padStart(2, "0"))
+    .join("");
 }
 
-// Any interaction counts as consent
-["mousedown","mouseup","mousemove","keydown","touchstart"].forEach(evt => {
-  layer.addEventListener(evt, engage, { passive: false });
-});
+const MORSE = {
+  a:".-", b:"-...", c:"-.-.", d:"-..", e:".", f:"..-.",
+  g:"--.", h:"....", i:"..", j:".---", k:"-.-", l:".-..",
+  m:"--", n:"-.", o:"---", p:".--.", q:"--.-", r:".-.",
+  s:"...", t:"-", u:"..-", v:"...-", w:".--", x:"-..-",
+  y:"-.--", z:"--..",
+  0:"-----",1:".----",2:"..---",3:"...--",4:"....-",
+  5:".....",6:"-....",7:"--...",8:"---..",9:"----."
+};
 
-// If fullscreen drops, immediately demand a new gesture
-document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement) {
-    layer.style.display = "block";
-  }
-});
-
-// Extra pressure
-setInterval(() => {
-  requestFS();
-  lockPointer();
-}, 150);
-
-// Block common exits (best effort)
-document.addEventListener("keydown", e => {
-  if (
-    e.key === "Escape" ||
-    e.key === "F11" ||
-    (e.ctrlKey && ["w","W","t","T","r","R"].includes(e.key)) ||
-    (e.altKey && e.key === "Tab")
-  ) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-});
-
-window.addEventListener("popstate", () => {
-  history.pushState(null, "", location.href);
-});
-
-// Initial history flood
-for (let i = 0; i < 40; i++) {
-  history.pushState(null, "", location.href);
+function toMorse(str) {
+  return str
+    .toLowerCase()
+    .split("")
+    .map(c => MORSE[c] || "")
+    .filter(Boolean)
+    .join(" ");
 }
+
+function generateArtifact() {
+  const finalMessage =
+    "You were never entitled to victory. Only those who persist are permitted to advance.";
+
+  const base64 = btoa(finalMessage);
+  const rot = rot13(base64);
+  const hex = toHex(rot);
+  const morse = toMorse(hex);
+
+  return morse;
+}
+
+/* ======================
+   TITLE DECAY
+====================== */
+document.title =
+  profile.visits < 5 ? "cache" :
+  profile.visits < 8 ? "cached copy" :
+  "still here";
 </script>
 
 </body>
